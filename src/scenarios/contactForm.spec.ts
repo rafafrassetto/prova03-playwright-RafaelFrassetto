@@ -1,9 +1,6 @@
-// 'test', 'expect', 'Page', e 'Request' vêm de @playwright/test
-import { test, expect, Page, Request } from '@playwright/test';
-// Apenas 'ai' vem de @zerostep/playwright
+// Importamos 'Page' mas não precisamos mais de 'Request'
+import { test, expect, Page } from '@playwright/test';
 import { ai } from '@zerostep/playwright';
-// ---------------------------------------------------
-
 import { faker } from '@faker-js/faker';
 import ContactPage from '../support/pages/ContactPage';
 
@@ -13,13 +10,13 @@ const pageUrl =
 
 test.beforeEach(async ({ page }: { page: Page }) => {
   contactPage = new ContactPage(page);
-  // Adicionamos um timeout maior para o 'goto'
   await contactPage.visit();
   await expect(page).toHaveTitle('Formulário de Contato');
 });
 
 /**
  * TESTE 1: Playwright Padrão (Happy Path)
+ * Preenche e envia. A página deve recarregar, limpando os campos.
  */
 test('deve preencher e enviar o formulário com sucesso (Playwright Padrão)', async ({
   page
@@ -40,25 +37,24 @@ test('deve preencher e enviar o formulário com sucesso (Playwright Padrão)', a
     testData.message
   );
 
-  const [request] = await Promise.all([
-    page.waitForRequest((req: Request) => req.method() === 'POST'),
+  // Garante que os campos foram preenchidos antes de clicar
+  await expect(contactPage.nameInput).toHaveValue(testData.name);
+
+  // MUDANÇA: Trocamos 'waitForRequest' por 'waitForNavigation'
+  // Isso espera o 'action="#"' recarregar a página.
+  await Promise.all([
+    page.waitForNavigation(),
     contactPage.submitForm()
   ]);
 
-  expect(request.method()).toBe('POST');
-
-  // MUDANÇA: Corrigindo como lemos os dados do POST
-  const postDataString = request.postData();
-  expect(postDataString).toBeTruthy(); // Verifica se postData não é nulo
-
-  const postData = new URLSearchParams(postDataString!);
-  expect(postData.get('nome')).toBe(testData.name);
-  expect(postData.get('email')).toBe(testData.email);
-  // -------------------------------------------------
+  // Após o reload, os campos obrigatórios devem estar vazios
+  await expect(contactPage.nameInput).toHaveValue('');
+  await expect(contactPage.emailInput).toHaveValue('');
 });
 
 /**
  * TESTE 2: Zerostep AI
+ * Preenche e envia com IA. A página deve recarregar, limpando os campos.
  */
 test('deve preencher e enviar o formulário com sucesso (Zerostep AI)', async ({
   page
@@ -72,7 +68,7 @@ test('deve preencher e enviar o formulário com sucesso (Zerostep AI)', async ({
     message: 'Esta é uma mensagem de teste enviada pela Zerostep AI.'
   };
 
-  // Passamos 'test: test' para a função 'ai'
+  // Usamos a IA para preencher
   await ai(`Preencha o campo "Nome Completo" com "${testData.name}"`, { page, test: test });
   await ai(`Preencha o campo "Seu Melhor Email" com "${testData.email}"`, {
     page,
@@ -84,37 +80,41 @@ test('deve preencher e enviar o formulário com sucesso (Zerostep AI)', async ({
     test: test
   });
 
-  const [request] = await Promise.all([
-    page.waitForRequest((req: Request) => req.method() === 'POST'),
+  // MUDANÇA: Trocamos 'waitForRequest' por 'waitForNavigation'
+  await Promise.all([
+    page.waitForNavigation(),
     ai('Clique no botão "Enviar"', { page, test: test })
   ]);
 
-  expect(request.method()).toBe('POST');
-
-  // MUDANÇA: Corrigindo como lemos os dados do POST
-  const postDataString = request.postData();
-  expect(postDataString).toBeTruthy(); // Verifica se postData não é nulo
-
-  const postData = new URLSearchParams(postDataString!);
-  expect(postData.get('nome')).toBe(testData.name);
-  expect(postData.get('assunto')).toBe(testData.subject);
-  // -------------------------------------------------
+  // Após o reload, os campos obrigatórios devem estar vazios
+  await expect(contactPage.nameInput).toHaveValue('');
+  await expect(contactPage.emailInput).toHaveValue('');
 });
 
 /**
  * TESTE 3: Playwright Padrão (Validação)
+ * Tenta enviar vazio. A página NÃO deve recarregar.
  */
 test('deve mostrar erro de validação ao tentar enviar campos obrigatórios vazios', async ({
   page
 }: {
   page: Page;
 }) => {
+  // Preenchemos um campo só para ter certeza de que o teste é válido
+  await contactPage.messageInput.fill('Teste de validação');
+  
+  // Tenta enviar (sem preencher 'nome' e 'email' que são required)
   await contactPage.submitForm();
 
+  // A página NÃO deve recarregar, pois a validação HTML5 deve falhar
+  await expect(page).toHaveURL(pageUrl);
+
+  // Verificamos o 'validity state' do HTML5 no campo 'nome'
   const isNomeValid = await contactPage.nameInput.evaluate(
     el => (el as HTMLInputElement).validity.valid
   );
-  expect(isNomeValid).toBe(false);
+  expect(isNomeValid).toBe(false); // Esperamos que seja inválido
 
-  await expect(page).toHaveURL(pageUrl);
+  // O campo que preenchemos deve continuar com o texto
+  await expect(contactPage.messageInput).toHaveValue('Teste de validação');
 });

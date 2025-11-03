@@ -1,4 +1,3 @@
-// MUDANÇA 1: Importações corrigidas
 // 'test', 'expect', 'Page', e 'Request' vêm de @playwright/test
 import { test, expect, Page, Request } from '@playwright/test';
 // Apenas 'ai' vem de @zerostep/playwright
@@ -24,6 +23,8 @@ test.beforeEach(async ({ page }: { page: Page }) => {
  */
 test('deve preencher e enviar o formulário com sucesso (Playwright Padrão)', async ({
   page
+}: {
+  page: Page;
 }) => {
   const testData = {
     name: faker.person.fullName(),
@@ -39,12 +40,11 @@ test('deve preencher e enviar o formulário com sucesso (Playwright Padrão)', a
     testData.message
   );
 
-  // MUDANÇA 2: Adicionamos o tipo 'Request' ao 'req' para resolver o erro 'any'
+  // Adicionamos o tipo 'Request' ao 'req' para resolver o erro 'any'
   const [request] = await Promise.all([
     page.waitForRequest((req: Request) => req.method() === 'POST'),
     contactPage.submitForm()
   ]);
-  // ---------------------------------------------------
 
   expect(request.method()).toBe('POST');
   const postData = request.postDataJSON();
@@ -55,8 +55,11 @@ test('deve preencher e enviar o formulário com sucesso (Playwright Padrão)', a
 /**
  * TESTE 2: Zerostep AI
  */
+// A tipagem de 'page' é adicionada aqui também
 test('deve preencher e enviar o formulário com sucesso (Zerostep AI)', async ({
   page
+}: {
+  page: Page;
 }) => {
   const testData = {
     name: faker.person.fullName(),
@@ -65,26 +68,26 @@ test('deve preencher e enviar o formulário com sucesso (Zerostep AI)', async ({
     message: 'Esta é uma mensagem de teste enviada pela Zerostep AI.'
   };
 
-  // MUDANÇA 3: A função 'ai' precisa de { page, test }
-  await ai(`Preencha o campo "Nome Completo" com "${testData.name}"`, { page, test });
+  // MUDANÇA FINAL: Passamos 'test: test'
+  // O primeiro 'test' é a propriedade que a função 'ai' espera.
+  // O segundo 'test' é a função que importamos no topo do arquivo.
+  await ai(`Preencha o campo "Nome Completo" com "${testData.name}"`, { page, test: test });
   await ai(`Preencha o campo "Seu Melhor Email" com "${testData.email}"`, {
     page,
-    test
+    test: test
   });
-  await ai(`Preencha o campo "Assunto" com "${testData.subject}"`, { page, test });
+  await ai(`Preencha o campo "Assunto" com "${testData.subject}"`, { page, test: test });
   await ai(`Preencha o campo "Mensagem" com "${testData.message}"`, {
     page,
-    test
+    test: test
   });
   // ---------------------------------------------------
 
-  // MUDANÇA 2 (de novo): Adicionamos o tipo 'Request' ao 'req'
   const [request] = await Promise.all([
     page.waitForRequest((req: Request) => req.method() === 'POST'),
-    // MUDANÇA 3 (de novo): Passando { page, test }
-    ai('Clique no botão "Enviar"', { page, test })
+    // Corrigido aqui também
+    ai('Clique no botão "Enviar"', { page, test: test })
   ]);
-  // ---------------------------------------------------
 
   expect(request.method()).toBe('POST');
   const postData = request.postDataJSON();
@@ -95,8 +98,11 @@ test('deve preencher e enviar o formulário com sucesso (Zerostep AI)', async ({
 /**
  * TESTE 3: Playwright Padrão (Validação)
  */
+// A tipagem de 'page' é adicionada aqui também
 test('deve mostrar erro de validação ao tentar enviar campos obrigatórios vazios', async ({
   page
+}: {
+  page: Page;
 }) => {
   await contactPage.submitForm();
 

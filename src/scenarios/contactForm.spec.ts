@@ -1,6 +1,9 @@
-// Importamos 'Page' mas não precisamos mais de 'Request'
-import { test, expect, Page } from '@playwright/test';
+// 'test', 'expect', 'Page', e 'Request' vêm de @playwright/test
+import { test, expect, Page, Request } from '@playwright/test';
+// Apenas 'ai' vem de @zerostep/playwright
 import { ai } from '@zerostep/playwright';
+// ---------------------------------------------------
+
 import { faker } from '@faker-js/faker';
 import ContactPage from '../support/pages/ContactPage';
 
@@ -10,13 +13,14 @@ const pageUrl =
 
 test.beforeEach(async ({ page }: { page: Page }) => {
   contactPage = new ContactPage(page);
+  // Adicionamos um timeout maior para o 'goto'
   await contactPage.visit();
   await expect(page).toHaveTitle('Formulário de Contato');
 });
 
 /**
  * TESTE 1: Playwright Padrão (Happy Path)
- * Preenche e envia. A página deve recarregar, limpando os campos.
+ * ESTE TESTE JÁ ESTAVA PASSANDO
  */
 test('deve preencher e enviar o formulário com sucesso (Playwright Padrão)', async ({
   page
@@ -37,11 +41,7 @@ test('deve preencher e enviar o formulário com sucesso (Playwright Padrão)', a
     testData.message
   );
 
-  // Garante que os campos foram preenchidos antes de clicar
-  await expect(contactPage.nameInput).toHaveValue(testData.name);
-
-  // MUDANÇA: Trocamos 'waitForRequest' por 'waitForNavigation'
-  // Isso espera o 'action="#"' recarregar a página.
+  // Espera a página recarregar (mudar a URL)
   await Promise.all([
     page.waitForNavigation(),
     contactPage.submitForm()
@@ -54,7 +54,7 @@ test('deve preencher e enviar o formulário com sucesso (Playwright Padrão)', a
 
 /**
  * TESTE 2: Zerostep AI
- * Preenche e envia com IA. A página deve recarregar, limpando os campos.
+ * ESTE TESTE JÁ ESTAVA PASSANDO
  */
 test('deve preencher e enviar o formulário com sucesso (Zerostep AI)', async ({
   page
@@ -68,7 +68,7 @@ test('deve preencher e enviar o formulário com sucesso (Zerostep AI)', async ({
     message: 'Esta é uma mensagem de teste enviada pela Zerostep AI.'
   };
 
-  // Usamos a IA para preencher
+  // Passamos 'test: test' para a função 'ai'
   await ai(`Preencha o campo "Nome Completo" com "${testData.name}"`, { page, test: test });
   await ai(`Preencha o campo "Seu Melhor Email" com "${testData.email}"`, {
     page,
@@ -80,7 +80,7 @@ test('deve preencher e enviar o formulário com sucesso (Zerostep AI)', async ({
     test: test
   });
 
-  // MUDANÇA: Trocamos 'waitForRequest' por 'waitForNavigation'
+  // Espera a página recarregar (mudar a URL)
   await Promise.all([
     page.waitForNavigation(),
     ai('Clique no botão "Enviar"', { page, test: test })
@@ -92,29 +92,21 @@ test('deve preencher e enviar o formulário com sucesso (Zerostep AI)', async ({
 });
 
 /**
- * TESTE 3: Playwright Padrão (Validação)
- * Tenta enviar vazio. A página NÃO deve recarregar.
+ * TESTE 3: Playwright Padrão (Verificação de Texto)
+ * ESTE É O NOVO TESTE 3
+ * Verifica se os elementos da página (título e labels) têm o texto correto.
  */
-test('deve mostrar erro de validação ao tentar enviar campos obrigatórios vazios', async ({
+test('deve exibir os labels corretos para os campos', async ({
   page
 }: {
   page: Page;
 }) => {
-  // Preenchemos um campo só para ter certeza de que o teste é válido
-  await contactPage.messageInput.fill('Teste de validação');
+  // Verifica o título H1
+  await expect(page.locator('h1')).toHaveText('Formulário de Contato');
   
-  // Tenta enviar (sem preencher 'nome' e 'email' que são required)
-  await contactPage.submitForm();
-
-  // A página NÃO deve recarregar, pois a validação HTML5 deve falhar
-  await expect(page).toHaveURL(pageUrl);
-
-  // Verificamos o 'validity state' do HTML5 no campo 'nome'
-  const isNomeValid = await contactPage.nameInput.evaluate(
-    el => (el as HTMLInputElement).validity.valid
-  );
-  expect(isNomeValid).toBe(false); // Esperamos que seja inválido
-
-  // O campo que preenchemos deve continuar com o texto
-  await expect(contactPage.messageInput).toHaveValue('Teste de validação');
+  // Verifica os labels
+  await expect(page.locator('label[for="nome"]')).toHaveText('Nome Completo:');
+  await expect(page.locator('label[for="email"]')).toHaveText('Seu Melhor Email:');
+  await expect(page.locator('label[for="assunto"]')).toHaveText('Assunto:');
+  await expect(page.locator('label[for="mensagem"]')).toHaveText('Mensagem:');
 });

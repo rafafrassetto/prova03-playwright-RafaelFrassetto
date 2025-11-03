@@ -1,15 +1,19 @@
-import { test, expect } from '@playwright/test';
+// MUDANÇA 1: Importações corrigidas
+// 'test', 'expect', 'Page', e 'Request' vêm de @playwright/test
+import { test, expect, Page, Request } from '@playwright/test';
+// Apenas 'ai' vem de @zerostep/playwright
 import { ai } from '@zerostep/playwright';
-import { faker } from '@faker-js/faker'; // Usaremos o faker para gerar dados
+// ---------------------------------------------------
+
+import { faker } from '@faker-js/faker';
 import ContactPage from '../support/pages/ContactPage';
 
-// Variável para a Page Object
 let contactPage: ContactPage;
 const pageUrl =
   'https://techshop.wuaze.com/resources/views/RafaelFrassettoPereira-JoaoGabrielRosso-JoaoAcordi-LuizMiguel-Apresentacao-A3.html?i=1';
 
-test.beforeEach(async ({ page }) => {
-  // Inicializa a Page Object e visita a URL antes de cada teste
+// A importação correta de 'test' (acima) já resolve os erros de tipo 'any' aqui
+test.beforeEach(async ({ page }: { page: Page }) => {
   contactPage = new ContactPage(page);
   await contactPage.visit();
   await expect(page).toHaveTitle('Formulário de Contato');
@@ -17,7 +21,6 @@ test.beforeEach(async ({ page }) => {
 
 /**
  * TESTE 1: Playwright Padrão (Happy Path)
- * Preenche e envia o formulário com dados válidos.
  */
 test('deve preencher e enviar o formulário com sucesso (Playwright Padrão)', async ({
   page
@@ -29,7 +32,6 @@ test('deve preencher e enviar o formulário com sucesso (Playwright Padrão)', a
     message: faker.lorem.paragraph()
   };
 
-  // Preenche o formulário
   await contactPage.fillContactForm(
     testData.name,
     testData.email,
@@ -37,17 +39,14 @@ test('deve preencher e enviar o formulário com sucesso (Playwright Padrão)', a
     testData.message
   );
 
-  // O seu formulário tem action="#", então ele apenas recarrega a página.
-  // Vamos esperar por uma requisição POST que é disparada ao clicar.
+  // MUDANÇA 2: Adicionamos o tipo 'Request' ao 'req' para resolver o erro 'any'
   const [request] = await Promise.all([
-    page.waitForRequest(req => req.method() === 'POST'),
+    page.waitForRequest((req: Request) => req.method() === 'POST'),
     contactPage.submitForm()
   ]);
+  // ---------------------------------------------------
 
-  // Verifica se a requisição foi feita
   expect(request.method()).toBe('POST');
-  
-  // Verifica se os dados enviados estão corretos
   const postData = request.postDataJSON();
   expect(postData.nome).toBe(testData.name);
   expect(postData.email).toBe(testData.email);
@@ -55,7 +54,6 @@ test('deve preencher e enviar o formulário com sucesso (Playwright Padrão)', a
 
 /**
  * TESTE 2: Zerostep AI
- * Preenche e envia o formulário usando comandos de IA.
  */
 test('deve preencher e enviar o formulário com sucesso (Zerostep AI)', async ({
   page
@@ -67,26 +65,28 @@ test('deve preencher e enviar o formulário com sucesso (Zerostep AI)', async ({
     message: 'Esta é uma mensagem de teste enviada pela Zerostep AI.'
   };
 
-  // Use a Zerostep AI para preencher os campos
-  // O token ZEROSTEP_TOKEN será pego das suas GitHub Secrets, como configurado no .yml
-  await ai(page, `Preencha o campo "Nome Completo" com "${testData.name}"`);
-  await ai(page, `Preencha o campo "Seu Melhor Email" com "${testData.email}"`);
-  await ai(page, `Preencha o campo "Assunto" com "${testData.subject}"`);
-  await ai(
+  // MUDANÇA 3: A função 'ai' precisa de { page, test }
+  await ai(`Preencha o campo "Nome Completo" com "${testData.name}"`, { page, test });
+  await ai(`Preencha o campo "Seu Melhor Email" com "${testData.email}"`, {
     page,
-    `Preencha o campo "Mensagem" com "${testData.message}"`
-  );
+    test
+  });
+  await ai(`Preencha o campo "Assunto" com "${testData.subject}"`, { page, test });
+  await ai(`Preencha o campo "Mensagem" com "${testData.message}"`, {
+    page,
+    test
+  });
+  // ---------------------------------------------------
 
-  // Espera pela requisição POST ao clicar
+  // MUDANÇA 2 (de novo): Adicionamos o tipo 'Request' ao 'req'
   const [request] = await Promise.all([
-    page.waitForRequest(req => req.method() === 'POST'),
-    ai(page, 'Clique no botão "Enviar"') // Clica usando AI
+    page.waitForRequest((req: Request) => req.method() === 'POST'),
+    // MUDANÇA 3 (de novo): Passando { page, test }
+    ai('Clique no botão "Enviar"', { page, test })
   ]);
+  // ---------------------------------------------------
 
-  // Verifica se a requisição foi feita
   expect(request.method()).toBe('POST');
-
-  // Verifica se os dados enviados estão corretos
   const postData = request.postDataJSON();
   expect(postData.nome).toBe(testData.name);
   expect(postData.assunto).toBe(testData.subject);
@@ -94,23 +94,16 @@ test('deve preencher e enviar o formulário com sucesso (Zerostep AI)', async ({
 
 /**
  * TESTE 3: Playwright Padrão (Validação)
- * Tenta enviar o formulário vazio e verifica a validação HTML5.
  */
 test('deve mostrar erro de validação ao tentar enviar campos obrigatórios vazios', async ({
   page
 }) => {
-  // Tenta enviar o formulário vazio
   await contactPage.submitForm();
 
-  // Verifica a validação do HTML5 no primeiro campo (Nome)
-  // O Playwright pode checar a "validity state" do elemento
   const isNomeValid = await contactPage.nameInput.evaluate(
     el => (el as HTMLInputElement).validity.valid
   );
-  
-  // Esperamos que o campo NÃO seja válido, pois é 'required'
   expect(isNomeValid).toBe(false);
 
-  // Também podemos checar se a URL não mudou, pois o envio foi bloqueado
   await expect(page).toHaveURL(pageUrl);
 });

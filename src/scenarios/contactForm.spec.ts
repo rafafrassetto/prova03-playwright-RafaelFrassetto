@@ -1,8 +1,5 @@
-// 'test', 'expect', 'Page', e 'Request' vêm de @playwright/test
 import { test, expect, Page, Request } from '@playwright/test';
-// Apenas 'ai' vem de @zerostep/playwright
 import { ai } from '@zerostep/playwright';
-// ---------------------------------------------------
 
 import { faker } from '@faker-js/faker';
 import ContactPage from '../support/pages/ContactPage';
@@ -13,14 +10,14 @@ const pageUrl =
 
 test.beforeEach(async ({ page }: { page: Page }) => {
   contactPage = new ContactPage(page);
-  // Adicionamos um timeout maior para o 'goto'
+
   await contactPage.visit();
   await expect(page).toHaveTitle('Formulário de Contato');
 });
 
 /**
  * TESTE 1: Playwright Padrão (Happy Path)
- * ESTE TESTE JÁ ESTAVA PASSANDO
+ * 
  */
 test('deve preencher e enviar o formulário com sucesso (Playwright Padrão)', async ({
   page
@@ -54,7 +51,7 @@ test('deve preencher e enviar o formulário com sucesso (Playwright Padrão)', a
 
 /**
  * TESTE 2: Zerostep AI
- * ESTE TESTE JÁ ESTAVA PASSANDO
+ * 
  */
 test('deve preencher e enviar o formulário com sucesso (Zerostep AI)', async ({
   page
@@ -68,7 +65,7 @@ test('deve preencher e enviar o formulário com sucesso (Zerostep AI)', async ({
     message: 'Esta é uma mensagem de teste enviada pela Zerostep AI.'
   };
 
-  // Passamos 'test: test' para a função 'ai'
+  // 'test: test' para a função 'ai'
   await ai(`Preencha o campo "Nome Completo" com "${testData.name}"`, { page, test: test });
   await ai(`Preencha o campo "Seu Melhor Email" com "${testData.email}"`, {
     page,
@@ -93,7 +90,6 @@ test('deve preencher e enviar o formulário com sucesso (Zerostep AI)', async ({
 
 /**
  * TESTE 3: Playwright Padrão (Verificação de Texto)
- * ESTE É O NOVO TESTE 3
  * Verifica se os elementos da página (título e labels) têm o texto correto.
  */
 test('deve exibir os labels corretos para os campos', async ({
